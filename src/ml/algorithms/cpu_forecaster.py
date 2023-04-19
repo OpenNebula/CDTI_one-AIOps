@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import os
 
 from darts import TimeSeries
 from darts.utils.missing_values import fill_missing_values
@@ -8,11 +7,21 @@ from darts.models import RegressionModel
 from sklearn.linear_model import BayesianRidge
 
 class CpuForecaster:
+    """CPU Forecaster class to predict CPU usage"""
 
     def __init__(self):
         pass
 
-    def forecast(self, vm_cpu_usage):
+    def forecast(self, vm_cpu_usage: dict) -> dict:
+        """
+        Forecast CPU usage for the next 24 hours
+
+        Args:
+            vm_cpu_usage (dict): Dictionary with VM ID as key and historic CPU usage as value
+
+        Returns:
+            dict: Dictionary with VM ID as key and predicted CPU usage as value
+        """        
         cpu_predictions = dict()
 
         for vm_id, historic in vm_cpu_usage.items():

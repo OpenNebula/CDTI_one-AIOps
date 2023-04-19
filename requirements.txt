@@ -1,0 +1,8 @@
+darts==0.23.1
+prometheus-api-client==0.5.3
+prometheus-client==0.16.0
+ortools==9.6.2534
+pandas==1.5.3
+pyone==6.6.0
+numpy==1.23.5
+sklearn==0.0.post1

@@ -4,13 +4,12 @@
 # Import libraries
 
 import pandas as pd
-import os
 import time
 
 from ortools.linear_solver import pywraplp
-from helper import print_values
 
 class ILPOptimization:
+    """ILP Optimization class to solve the VM allocation problem"""    
 
     def __init__(
             self,
@@ -18,6 +17,7 @@ class ILPOptimization:
             cluster_info: dict, 
             predictions: dict, 
             allocations: dict,
+            config: dict,
         ):
         # Solver
         self.solver = pywraplp.Solver.CreateSolver('SCIP')
@@ -33,12 +33,13 @@ class ILPOptimization:
         self.vm_allocations  = allocations
 
         # Input paramaters for the model
-        self.core_limit = -1
-        self.distance_limit = -1
+        self.core_limit = config.getint('CORE_LIMIT')
+        self.distance_limit = config.getint('DISTANCE_LIMIT')
         # Host CPU usage threshold (The CPU usage sould no exceed alpha x 100%)
-        self.alpha = 1.0
+        self.alpha = config.getfloat('ALPHA_VALUE')
         # Sets a time limit for running the solver
-        self.max_seconds = 120
+        self.max_seconds = config.getint('MAX_SECONDS')
+        self.cost_function = config.getint('COST_FUNCTION')
 
         # Init attrs
         self._initialize_vm_solved()
@@ -63,6 +64,12 @@ class ILPOptimization:
         Args:
             cluster_id (int): Cluster ID
         """
+        # Remove VMs without CPU usage predictions
+        for vm in self.vm_info[cluster_id].copy().keys():
+            if vm not in self.cpu_predictions:
+                del self.vm_allocations[vm]
+                del self.vm_info[cluster_id][vm]
+
         self.max_vms   = len(self.vm_info[cluster_id])
         self.max_hosts = len(self.cluster_info[cluster_id])
 
@@ -76,22 +83,11 @@ class ILPOptimization:
             self.cluster_info[cluster_id][host]['memory'] for host in self.cluster_info[cluster_id]    
         ]
 
-        self.vm_cpu_usage = [self.cpu_predictions[str(vm)] for vm in self.vm_info[cluster_id]]
+        self.vm_cpu_usage = [self.cpu_predictions[vm] for vm in self.vm_info[cluster_id]]
         self.host_ids = list(self.cluster_info[cluster_id].keys())
         self.vm_ids  = list(self.vm_info[cluster_id].keys())
         self.allocation_matrix = self._generate_alloc_matrix(cluster_id=cluster_id)
 
-        # Debug 
-        print_values('max_vms', self.max_vms )
-        print_values('max_hosts', self.max_hosts)
-        print_values('cores_per_vm', self.cores_per_vm)
-        print_values('mem_per_vm', self.mem_per_vm)
-        print_values('cores_per_host', self.cores_per_host)
-        print_values('mem_per_host', self.mem_per_host)
-        print_values('vm_cpu_usage', self.vm_cpu_usage)
-        print_values('host_ids', self.host_ids)
-        print_values('vm_ids', self.vm_ids)
-        print_values('allocation_matrix', self.allocation_matrix)
 
     def _initialize_model(self) -> None:
         # Define unknowns x,y for the model
@@ -103,7 +99,16 @@ class ILPOptimization:
         # Define constrains for the model
         self._define_constrains()
 
-    def _generate_alloc_matrix(self, cluster_id: int) -> None:
+    def _generate_alloc_matrix(self, cluster_id: int) -> list:
+        """
+        Generate allocation matrix for a specific cluster
+
+        Args:
+            cluster_id (int): Cluster ID
+
+        Returns:
+            list: Allocation matrix
+        """        
         # Creates a dictionary that assign an index (0..m-1) to each host_id
         # And we create a list with the host_id assiged to each host index
         host_index = self._index_hash(self.cluster_info[cluster_id])
@@ -134,7 +139,16 @@ class ILPOptimization:
 
         return alloc_matrix
 
-    def _index_hash(self, hash_to_index: hash) -> None:
+    def _index_hash(self, hash_to_index: dict) -> dict:
+        """
+        Assign an index (0..m-1) to each host_id
+
+        Args:
+            hash_to_index (dict): Dictionary to index
+
+        Returns:
+            dict: Dictionary indexed
+        """        
         index = 0
         hash_indexed = dict()
     
@@ -144,7 +158,14 @@ class ILPOptimization:
 
         return hash_indexed
 
-    def _define_unknows(self):
+    def _define_unknows(self) -> list:
+        """
+        Defines the unknows of the model:
+            - x[i, j] = 1 if VM i is mapped to host j.
+            - y[j] = 1 if host j is used.
+        Returns:
+            list: x, y
+        """         
         # x[i, j] = 1 if VM i is mapped to host j.
         x = {}
         for i in range(self.max_vms):
@@ -283,34 +304,43 @@ class ILPOptimization:
 
     def _create_new_alloc(self, cluster_id: int) -> list:
         """
-        Create next day allocation list
-        """
+        Creates a new allocation for the given cluster
+
+        Args:
+            cluster_id (int): Cluster ID
+
+        Returns:
+            list: New allocation for the given cluster
+        """        
+
         new_vm_alloc = list()
 
+        # If a given VM is solved, we add the new allocation to the new_vm_alloc list
         for j in range(self.max_hosts):
             if self.y[j].solution_value() == 1:
                 host_id = self.host_ids[j]
                 for i in range(self.max_vms):
                     if self.x[i, j].solution_value() > 0:
                         vm_id = self.vm_ids[i] 
-                        new_vm_alloc.append([vm_id, cluster_id, host_id])
+                        new_vm_alloc.append([host_id, vm_id])
                         self.vm_solved[vm_id] = True
 
         # If a given VM is not solved, we use the same allocation than the previous day for this VM
         for vm_id in self.vm_solved:
             if not self.vm_solved[vm_id]:
                 cluster_id = self.vm_allocations[vm_id][0]
-                host_id = self.vm_allocations[vm_id][1]
-                new_vm_alloc.append([vm_id, cluster_id, host_id])
-            
-        # Order new_vm_alloc by vm_id index (index 0)
-        new_vm_alloc.sort(key=lambda x: x[0])
+                host_id = -1
+                new_vm_alloc.append([host_id, vm_id])
 
-        self.print_results(cluster_id)
+        # Order new_vm_alloc by vm_id index (index 1)
+        new_vm_alloc.sort(key=lambda x: x[1])
         
         return new_vm_alloc
 
     def _call_solver(self):
+        """
+        Calls the solver
+        """        
         # Sets a time limit for running the solver
         self.solver.SetTimeLimit(self.max_seconds*1000)
 
@@ -334,84 +364,33 @@ class ILPOptimization:
         else:
             print("Sub-optimal solution reached for this cluster")
 
-    def optimize(self, cluster_id: int = 0, cost_function: int = 1) -> None:
+    def optimize(self, cluster_id: int = 0) -> list:
         """
-        - cost_function = 1 ==> Optimize number of cores in use (within each cluster)
-        - cost_function = 2 ==> Optimize load balance (within each cluster)
-        - cost_function = 3 ==> Optimize allocation distance (within each cluster)
-        """
+        Optimize the allocation for the given cluster
+            - cost_function = 1 ==> Optimize number of cores in use (within each cluster)
+            - cost_function = 2 ==> Optimize load balance (within each cluster)
+            - cost_function = 3 ==> Optimize allocation distance (within each cluster)
+
+        Args:
+            cluster_id (int, optional): Cluster ID. Defaults to 0.
+
+        Returns:
+            list: New allocation for the given cluster
+        """        
         self._initialize_attrs(cluster_id=cluster_id)
         self._initialize_model()
 
-        if cost_function == 1:
+        if self.cost_function == 1:
             self.solver.Minimize(self.total_cores)
             self._call_solver()
             
-        if cost_function == 2:
+        if self.cost_function == 2:
             self.solver.Minimize(self.max_load)
             self._call_solver()
         
-        if cost_function == 3:
+        if self.cost_function == 3:
             self.solver.Minimize(self.distance)
             self._call_solver()
 
         return self._create_new_alloc(cluster_id)
 
-    def print_results(self, cluster_id: int) -> None:       
-        print()
-        print("***********************************")
-        print("****", cluster_id, " allocation ***")
-        print("***********************************")
-        print()
-
-        total_hosts = 0
-        total_cores = 0
-        total_mem = 0
-        alloc_dist = 0
-        current_day_alloc = [0] * self.max_vms
-        previous_day_alloc = self.vm_allocations
-        
-        for j in range(self.max_hosts):
-            if self.y[j].solution_value() == 1:
-                vms_mapped_to_host = []
-                # Host CPU usage using forecasted values of vm_cpu_usage
-                host_cpu_usage = [0.0] * 24
-                # Host CPU usage values of vm_cpu_usage
-                average_load_per_core = 0
-                host_mem_used = 0
-
-                for i in range(self.max_vms):
-                    if self.x[i, j].solution_value() > 0:
-                        vms_mapped_to_host.append(self.vm_ids[i])
-                        host_mem_used += self.mem_per_vm[i]
-                        for t in range(24):
-                            host_cpu_usage[t] += self.vm_cpu_usage[i][t] * self.cores_per_vm[i]
-                        current_day_alloc[i] = j
-                        if previous_day_alloc[i] != j:
-                            alloc_dist += 1
-                average_load_per_core = sum(host_cpu_usage[t] for t in range(24)) / (24 * self.cores_per_host[j])
-                for t in range(24):
-                    host_cpu_usage[t] = round(100*host_cpu_usage[t],1)
-                if vms_mapped_to_host:
-                    total_hosts += 1
-                    total_cores += self.cores_per_host[j]
-                    total_mem += self.mem_per_host[j]
-                    print('Host ID', self.host_ids[j] , "(" , self.cores_per_host[j], "vCPUs )")
-                    print('  VMs mapped:', vms_mapped_to_host)
-                    print('  % CPU usage per hour period (0-23) - Forecasted:', host_cpu_usage)
-                    print('  Average load per core - Forecasted:', round(average_load_per_core * 100,1), "%")
-                    print('  Mem used (GB) / Mem available (GB):', round(host_mem_used/1024,1), " / ", round(self.mem_per_host[j]/1024,1))
-                
-                    # print(host_cpu_usage)
-                    print()
-        #alloc_dist = alloc_dist / 2
-        print()
-        print('Total hosts used:', total_hosts)
-        print('Total cores allocated:', total_cores)
-        print('Total mem allocated (GB):', round(total_mem/1024,1))
-        print()
-        print('Previous day allocation: ', previous_day_alloc)
-        print('Current day allocation:  ', current_day_alloc)        
-        print('Allocation distance: ', alloc_dist)
-        print()        
-        #print('Time = ', solver.WallTime(), ' milliseconds')
