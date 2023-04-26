@@ -7,15 +7,17 @@ class DataCollector:
     """Data Collector class to get data from sources"""    
     
     def __init__(self, config: dict):
+        one  = config.get('opennebula')
+        prom = config.get('prometheus')
+        
         # Initialize clients
         self.oneClient = OneClient(
-            uri=config.get('ONE_XMLRCP_ENDPOINT'),
-            session=f"{config.get('ONE_XMLRCP_USER')}:{config.get('ONE_XMLRCP_PWD')}"
+            uri=one['one_xmlrcp_endpoint'],
+            session=f"{one['one_xmlrcp_user']}:{one['one_xmlrcp_pwd']}"
         )
         self.promClient = PrometheusClient(
-            uri=config.get('ONE_PROMETHEUS_ENDPOINT'),
+            uri=prom['prom_endpoint'],
         )
-
 
     def vm_info(self, vm_id: int =None) -> dict:
         """

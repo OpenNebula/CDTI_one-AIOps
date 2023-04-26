@@ -1,0 +1,43 @@
+{ 
+    "exporter_port": 9877,
+    "history_time_range": 30,
+    "collectors": {
+        "opennebula": {
+            "one_xmlrcp_endpoint": "http://localhost:2633/RPC2",
+            "one_xmlrcp_user": "oneadmin",
+            "one_xmlrcp_pwd": "opennebula"
+        },
+        "prometheus": {
+            "prom_endpoint": "http://localhost:9090"
+        }
+    },
+    "cost_functions": [
+        {
+            "id": 0,
+            "name": "Total Cores",
+            "desc": "Optimize number of cores in use (within each cluster)",
+            "alpha_value": 1,
+            "core_limit": -1,
+            "distance_limit": -1,
+            "max_seconds": 120
+        },
+        {
+            "id": 1,
+            "name": "Max Load",
+            "desc": "Optimize load balance (within each cluster)",
+            "alpha_value": 1,
+            "core_limit": -1,
+            "distance_limit": -1,
+            "max_seconds": 120
+        },
+        {
+            "id": 2,
+            "name": "Distance",
+            "desc": "Optimize allocation distance (within each cluster)",
+            "alpha_value": 1,
+            "core_limit": -1,
+            "distance_limit": -1,
+            "max_seconds": 120
+        }
+    ]
+}

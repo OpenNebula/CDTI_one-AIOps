@@ -1,12 +1,12 @@
 from .algorithms.cpu_forecaster import CpuForecaster
 from .algorithms.ilp_optimization import ILPOptimization
 
-class Predictor:
+class Optimizer:
     """Predictor class to predict CPU usage and optimize VM allocation"""    
     
-    def __init__(self, config: dict):
+    def __init__(self, cost_functions: list):
         self.forecaster = CpuForecaster()
-        self.config = config
+        self.cost_functions = cost_functions
 
     def predict_cpu_usage(self, cpu_usage: dict) -> dict:
         """
@@ -26,7 +26,7 @@ class Predictor:
             cluster_info: dict,
             cpu_prediction: dict,
             current_alloc: dict,
-        ) -> dict:
+        ) -> list:
         """
         Optimize VM allocation
 
@@ -37,25 +37,28 @@ class Predictor:
             current_alloc (dict): Current VM allocation
 
         Returns:
-            dict: Dictionary with cluster ID as key and optimized VM allocation as value
-        """        
-        # Create the optimizer by cluster
-        optimizer = ILPOptimization(
-                vm_info=vm_info,
-                cluster_info=cluster_info,
-                predictions=cpu_prediction,
-                allocations=current_alloc,
-                config=self.config
-        )
-
-        results = dict()
-
-        # Process clusters
-        for cluster_id in cluster_info.keys():
-            results[cluster_id] = optimizer.optimize(
-                cluster_id=cluster_id
+            list: List of dictionaries with the optimized allocation for each cost function
+        """ 
+        results = list()
+  
+        for cost_function in self.cost_functions:     
+            # Create the optimizer by cluster
+            optimizer = ILPOptimization(
+                    vm_info=vm_info,
+                    cluster_info=cluster_info,
+                    predictions=cpu_prediction,
+                    allocations=current_alloc,
+                    config=cost_function
             )
+            func_result = dict()
+
+            # Process clusters
+            for cluster_id in cluster_info.keys():
+                func_result[cluster_id] = optimizer.optimize(
+                    cluster_id=cluster_id
+                )
+
+            cost_function['results'] = func_result
+            results.append(cost_function)
 
         return results
-
-

@@ -33,13 +33,13 @@ class ILPOptimization:
         self.vm_allocations  = allocations
 
         # Input paramaters for the model
-        self.core_limit = config.getint('CORE_LIMIT')
-        self.distance_limit = config.getint('DISTANCE_LIMIT')
+        self.core_limit = config.get('core_limit')
+        self.distance_limit = config.get('distance_limit')
         # Host CPU usage threshold (The CPU usage sould no exceed alpha x 100%)
-        self.alpha = config.getfloat('ALPHA_VALUE')
+        self.alpha = config.get('alpha_value')
         # Sets a time limit for running the solver
-        self.max_seconds = config.getint('MAX_SECONDS')
-        self.cost_function = config.getint('COST_FUNCTION')
+        self.max_seconds = config.get('max_seconds')
+        self.cost_function = config.get('id')
 
         # Init attrs
         self._initialize_vm_solved()
@@ -182,10 +182,10 @@ class ILPOptimization:
     def _define_cost_functions(self) -> list:
         """
         Defines the three hosts functions used in the model:
-            - cost_function = 1 ==> total_cores ==> to optimize number of cores in use
+            - cost_function = 0 ==> total_cores ==> to optimize number of cores in use
                                     (within each cluster)
-            - cost_function = 2 ==> max_load ==> to optimize load balance (within each cluster)
-            - cost_function = 3 ==> distance ==> to optimize the allocation distance 
+            - cost_function = 1 ==> max_load ==> to optimize load balance (within each cluster)
+            - cost_function = 2 ==> distance ==> to optimize the allocation distance 
                                     (within each cluster)
 
         Returns:
@@ -355,6 +355,8 @@ class ILPOptimization:
         status = self.solver.Solve(solverParams)
         
         elapsed_time = time.time() - now
+        print('\n--------------------------------------')
+        print('\nCost function used = ', self.cost_function)
         print("\nSolver execution time = ","{:.2f}".format(elapsed_time), "s.")
         
         if status == pywraplp.Solver.INFEASIBLE:
@@ -367,9 +369,9 @@ class ILPOptimization:
     def optimize(self, cluster_id: int = 0) -> list:
         """
         Optimize the allocation for the given cluster
-            - cost_function = 1 ==> Optimize number of cores in use (within each cluster)
-            - cost_function = 2 ==> Optimize load balance (within each cluster)
-            - cost_function = 3 ==> Optimize allocation distance (within each cluster)
+            - cost_function = 0 ==> Optimize number of cores in use (within each cluster)
+            - cost_function = 1 ==> Optimize load balance (within each cluster)
+            - cost_function = 2 ==> Optimize allocation distance (within each cluster)
 
         Args:
             cluster_id (int, optional): Cluster ID. Defaults to 0.
@@ -380,15 +382,15 @@ class ILPOptimization:
         self._initialize_attrs(cluster_id=cluster_id)
         self._initialize_model()
 
-        if self.cost_function == 1:
+        if self.cost_function == 0:
             self.solver.Minimize(self.total_cores)
             self._call_solver()
             
-        if self.cost_function == 2:
+        if self.cost_function == 1:
             self.solver.Minimize(self.max_load)
             self._call_solver()
         
-        if self.cost_function == 3:
+        if self.cost_function == 2:
             self.solver.Minimize(self.distance)
             self._call_solver()
 
