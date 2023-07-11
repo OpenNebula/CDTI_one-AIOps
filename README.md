@@ -84,3 +84,7 @@ As a result, you will be able to visualize a dashboard similar to the following 
 ## License
 
 This project is licensed under the [Apache License](https://www.apache.org/licenses/LICENSE-2.0).
+
+## Acknowledgements
+
+This software prototype has been funded by the Centre for the Development of Industrial Technology (Project OneSmartCosts – CDTI IDI-20221005) and co-financed by the European Union through the European Regional Development Fund (ERDF).
