@@ -1,6 +1,6 @@
 # One-AI Ops - Software Prototype
 
-One-AI Ops interacts with OpenNebula in order to provoid intelligent workload forecasting to optimize the provisioning and deployment of geographically distributed edge/cloud infrastructures and applications.
+One-AI Ops interacts with OpenNebula in order to provide intelligent workload forecasting to optimize the provisioning and deployment of geographically distributed edge/cloud infrastructures and applications.
 
 ## Requirements
 
@@ -79,7 +79,7 @@ As a result, you will be able to visualize a dashboard similar to the following 
 ## Limitations
 
 - One-AI Ops is not able to predict the workload of VMs that are not running at the moment of the prediction. This means that the predictions will not be accurate if the VMs are not running at the moment of the prediction.
-- One-AI are not able to interact with the OpenNebula front-end in order to perform the optimizations. This means that the user needs to perform the optimizations manually using the information provided by One-AI Ops.
+- One-AI Ops is not able to interact with the OpenNebula front-end in order to perform the optimizations. This means that the user needs to perform the optimizations manually using the information provided by One-AI Ops.
 
 ## License
 
