@@ -1,4 +1,4 @@
-# One-AI Ops
+# One-AI Ops - Software Prototype
 
 One-AI Ops interacts with OpenNebula in order to provoid intelligent workload forecasting to optimize the provisioning and deployment of geographically distributed edge/cloud infrastructures and applications.
 
